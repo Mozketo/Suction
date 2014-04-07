@@ -13,12 +13,14 @@ namespace Janison.Suction.Infrastructure
         private enum ProjectItemBuildAction
         {
             None,
-            Content,
             Compile,
+            Content,
             EmbeddedResource
         }
 
-        protected static readonly List<string> ExportableFileTypes = new List<string> { "css", "js", "sass", "scss", "html", "htm" };
+        protected static readonly List<string> EmbeddedResourceFileTypes = new List<string> { "css", "js", "sass", "scss", "html", "htm" };
+        protected static readonly List<string> CompileFileTypes = new List<string>();
+        protected static readonly List<string> ContentFileTypes = new List<string> { "cshtml" };
 
         public static void ItemSaved(Document document)
         {
@@ -38,21 +40,37 @@ namespace Janison.Suction.Infrastructure
             if (Guid.Parse(projectItem.Kind) != Guid.Parse("6bb5f8ee-4483-11d3-8bcf-00c04f8ec28c")) // GUID_ItemType_PhysicalFile
                 return;
 
-            // Only copy EmbeddedResources from projects into the Startup Project.
-            var buildAction = (ProjectItemBuildAction)projectItem.Properties.Item("BuildAction").Value;
-            if (buildAction != ProjectItemBuildAction.EmbeddedResource)
+            var isPermittedFileType = FuncEx.Create((List<string> fileTypes, ProjectItemBuildAction action) =>
+            {
+                if (!fileTypes.Contains(Path.GetExtension(projectItem.Name).TrimStart('.')))
+                    return false;
+
+                var buildAction = (ProjectItemBuildAction)projectItem.Properties.Item("BuildAction").Value;
+                if (buildAction != action)
+                    return false;
+
+                return true;
+            });
+
+            if (!(isPermittedFileType(EmbeddedResourceFileTypes, ProjectItemBuildAction.EmbeddedResource) || isPermittedFileType(ContentFileTypes, ProjectItemBuildAction.Content)))
                 return;
 
-            // Also we're only going to copy selected file types (css, js) as other file types will probably need to be compiled
-            if (!ExportableFileTypes.Contains(Path.GetExtension(projectItem.Name).TrimStart('.')))
-                return;
+            // If this is a cshtml file then check to see if it has a customtool property value. If there's no value then the cshtml file
+            // is probably coming from a theme and shouldn't be copied at all.
+            if (Path.GetExtension(projectItem.Name).Equals(".cshtml", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (projectItem.FileNames[0].ToLower().Contains("app_code"))
+                    return;
+                string customTool = projectItem.Properties.Item("CustomTool").Value.ToString();
+                if (String.IsNullOrEmpty(customTool))
+                    return;
+            }
 
             // If the file belongs to the start up application don't copy it anywhere
             var startupProject = Infrastructure.Core.Instance.StartupProject;
             if (projectItem.ContainingProject.Equals(startupProject))
                 return;
 
-            OutputWindow.Log(String.Format("Suctioning '{0}'", projectItem.FileNames[0]));
             CopiedFiles.Add(startupProject, projectItem);
 
             var ie = projectItem.ProjectItems.GetEnumerator();

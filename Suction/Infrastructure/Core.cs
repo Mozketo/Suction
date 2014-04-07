@@ -11,6 +11,7 @@ using Microsoft.VisualStudio.Shell;
 using EnvDTE;
 using System.Globalization;
 using EnvDTE80;
+using Janison.Suction.Extensions;
 
 namespace Janison.Suction.Infrastructure
 {
@@ -39,8 +40,34 @@ namespace Janison.Suction.Infrastructure
                 if (startupProjects.Length > 1)
                     throw new ApplicationException("The solution cannot contain more than one startup project. Active startup projects: " + String.Join(", ", startupProjects));
 
-                Project startupProject = Dte.Solution.Projects.Item(startupProjects.GetValue(0));
+                Project startupProject = Dte.Solution.FindProjectEx(startupProjects.GetValue(0).ToString());
+
+                if (startupProject == null)
+                {
+                    var startupProjectItem = StartupProjectItem;
+                    if (startupProjectItem != null)
+                    {
+                        startupProject = startupProjectItem.SubProject;
+                    }
+                }
+
                 return startupProject;
+            }
+        }
+
+        protected ProjectItem StartupProjectItem
+        {
+            get
+            {
+                var startupProjects = (Array)Dte.Solution.SolutionBuild.StartupProjects;
+                if (startupProjects == null)
+                    return null;
+
+                if (startupProjects.Length > 1)
+                    throw new ApplicationException("The solution cannot contain more than one startup project. Active startup projects: " + String.Join(", ", startupProjects));
+
+                var startupProjectItem = Dte.Solution.FindProjectItemEx(startupProjects.GetValue(0).ToString());
+                return startupProjectItem;
             }
         }
 

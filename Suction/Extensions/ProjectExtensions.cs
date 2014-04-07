@@ -17,6 +17,8 @@ namespace Janison.Suction.Extensions
 
         public static string Combine(this Project project, string filename)
         {
+            if (project == null)
+                return String.Empty;
             var path = Path.Combine(project.DirectoryInfo().FullName, filename);
             return path;
         }

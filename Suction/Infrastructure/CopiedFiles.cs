@@ -27,17 +27,15 @@ namespace Janison.Suction.Infrastructure
 
             var saveTo = destination.Combine(projectItem.FilenameAsRelativePath());
             Directory.CreateDirectory(Path.GetDirectoryName(saveTo));
+
+            if (File.Exists(saveTo))
+                File.Delete(saveTo);
+
             File.Copy(projectItem.FileNames[0], saveTo, true);
             if (File.GetAttributes(saveTo).HasFlag(FileAttributes.ReadOnly))
                 File.SetAttributes(saveTo, File.GetAttributes(saveTo) & ~FileAttributes.ReadOnly);
 
-            //var sid = new SecurityIdentifier(WellKnownSidType.WorldSid, null); // Get Everyone account
-            //var account = new NTAccount("bclarkrobinson");
-            //var fs = File.GetAccessControl(saveTo);
-            //fs.SetOwner(account);
-            //File.SetAccessControl(saveTo, fs);
-
-            Infrastructure.Core.Instance.Notity("Embedded resource exported to " + saveTo);
+            OutputWindow.Log(String.Format("Suctioning '{0}'", saveTo));
         }
 
         public static void Remove(string relativeFilename)
